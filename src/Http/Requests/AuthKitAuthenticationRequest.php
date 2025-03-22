@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Laravel\WorkOS\User;
 use Laravel\WorkOS\WorkOS;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Http\JsonResponse;
 use WorkOS\UserManagement;
 
 class AuthKitAuthenticationRequest extends FormRequest
@@ -18,8 +18,11 @@ class AuthKitAuthenticationRequest extends FormRequest
     /**
      * Redirect the user to WorkOS for authentication.
      */
-    public function authenticate(?callable $findUsing = null, ?callable $createUsing = null, ?callable $updateUsing = null): mixed
-    {
+    public function authenticate(
+        ?callable $findUsing = null,
+        ?callable $createUsing = null,
+        ?callable $updateUsing = null
+    ): mixed {
         WorkOS::configure();
 
         $this->ensureStateIsValid();
@@ -28,9 +31,9 @@ class AuthKitAuthenticationRequest extends FormRequest
         $createUsing ??= $this->createUsing(...);
         $updateUsing ??= $this->updateUsing(...);
 
-        $user = (new UserManagement)->authenticateWithCode(
-            config('services.workos.client_id'),
-            $this->query('code'),
+        $user = (new UserManagement())->authenticateWithCode(
+            config("services.workos.client_id"),
+            $this->query("code")
         );
 
         [$user, $accessToken, $refreshToken, $organizationId] = [
@@ -46,23 +49,23 @@ class AuthKitAuthenticationRequest extends FormRequest
             firstName: $user->firstName,
             lastName: $user->lastName,
             email: $user->email,
-            avatar: $user->profilePictureUrl,
+            avatar: $user->profilePictureUrl
         );
 
         $existingUser = $findUsing($user->id);
 
-        if (! $existingUser) {
+        if (!$existingUser) {
             $existingUser = $createUsing($user);
 
             event(new Registered($existingUser));
-        } elseif (! is_null($updateUsing)) {
+        } elseif (!is_null($updateUsing)) {
             $existingUser = $updateUsing($existingUser, $user);
         }
 
-        Auth::guard('web')->login($existingUser);
+        Auth::guard("web")->login($existingUser);
 
-        $this->session()->put('workos_access_token', $accessToken);
-        $this->session()->put('workos_refresh_token', $refreshToken);
+        $this->session()->put("workos_access_token", $accessToken);
+        $this->session()->put("workos_refresh_token", $refreshToken);
 
         $this->session()->regenerate();
 
@@ -75,7 +78,7 @@ class AuthKitAuthenticationRequest extends FormRequest
     protected function findUsing(string $id): ?AppUser
     {
         /** @phpstan-ignore class.notFound */
-        return AppUser::where('workos_id', $id)->first();
+        return AppUser::where("workos_id", $id)->first();
     }
 
     /**
@@ -85,11 +88,11 @@ class AuthKitAuthenticationRequest extends FormRequest
     {
         /** @phpstan-ignore class.notFound */
         return AppUser::create([
-            'name' => $user->firstName.' '.$user->lastName,
-            'email' => $user->email,
-            'email_verified_at' => now(),
-            'workos_id' => $user->id,
-            'avatar' => $user->avatar ?? '',
+            "name" => $user->firstName . " " . $user->lastName,
+            "email" => $user->email,
+            "email_verified_at" => now(),
+            "workos_id" => $user->id,
+            "avatar" => $user->avatar ?? "",
         ]);
     }
 
@@ -100,24 +103,27 @@ class AuthKitAuthenticationRequest extends FormRequest
     {
         return tap($user)->update([
             // 'name' => $userFromWorkOS->firstName.' '.$userFromWorkOS->lastName,
-            'avatar' => $userFromWorkOS->avatar ?? '',
+            "avatar" => $userFromWorkOS->avatar ?? "",
         ]);
     }
 
     /**
      * Redirect the user to the previous URL or a default URL if no previous URL is available.
      */
-    public function redirect(string $default = '/'): Response
+    public function redirect(string $default = "/"): JsonResponse
     {
-        $previousUrl = rtrim(base64_decode($this->sessionState()['previous_url'] ?? '/')) ?: null;
+        $previousUrl =
+            rtrim(
+                base64_decode($this->sessionState()["previous_url"] ?? "/")
+            ) ?:
+            null;
 
-        $to = ! is_null($previousUrl) && $previousUrl !== URL::to('/')
-            ? $previousUrl
-            : $default;
+        $to =
+            !is_null($previousUrl) && $previousUrl !== URL::to("/")
+                ? $previousUrl
+                : $default;
 
-        return class_exists(Inertia::class)
-            ? Inertia::location($to)
-            : redirect($to);
+        return response()->json(["redirect" => $to]);
     }
 
     /**
@@ -125,13 +131,13 @@ class AuthKitAuthenticationRequest extends FormRequest
      */
     protected function ensureStateIsValid(): void
     {
-        $state = json_decode($this->query('state'), true)['state'] ?? false;
+        $state = json_decode($this->query("state"), true)["state"] ?? false;
 
-        if ($state !== ($this->sessionState()['state'] ?? false)) {
+        if ($state !== ($this->sessionState()["state"] ?? false)) {
             abort(403);
         }
 
-        $this->session()->forget('state');
+        $this->session()->forget("state");
     }
 
     /**
@@ -139,6 +145,6 @@ class AuthKitAuthenticationRequest extends FormRequest
      */
     protected function sessionState(): array
     {
-        return json_decode($this->session()->get('state'), true) ?: [];
+        return json_decode($this->session()->get("state"), true) ?: [];
     }
 }

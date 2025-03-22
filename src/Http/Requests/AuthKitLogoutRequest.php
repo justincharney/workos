@@ -6,7 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Laravel\WorkOS\WorkOS;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Http\JsonResponse;
 use WorkOS\UserManagement;
 
 class AuthKitLogoutRequest extends FormRequest
@@ -14,29 +14,36 @@ class AuthKitLogoutRequest extends FormRequest
     /**
      * Redirect the user to WorkOS for authentication.
      */
-    public function logout(): Response
+    public function logout(): JsonResponse
     {
-        $accessToken = $this->session()->get('workos_access_token');
+        $accessToken = $this->session()->get("workos_access_token");
 
         $workOsSession = $accessToken
             ? WorkOS::decodeAccessToken($accessToken)
             : false;
 
-        Auth::guard('web')->logout();
+        Auth::guard("web")->logout();
 
         $this->session()->invalidate();
         $this->session()->regenerateToken();
 
-        if (! $workOsSession) {
-            return redirect('/');
+        if (!$workOsSession) {
+            return response()->json(
+                ["message" => "Logged out successfully."],
+                200
+            );
         }
 
-        $logoutUrl = (new UserManagement)->getLogoutUrl(
-            $workOsSession['sid'],
+        $logoutUrl = (new UserManagement())->getLogoutUrl(
+            $workOsSession["sid"]
         );
 
-        return class_exists(Inertia::class)
-            ? Inertia::location($logoutUrl)
-            : redirect($logoutUrl);
+        return response()->json(
+            [
+                "message" => "Logged out successfully.",
+                "logout_url" => $logoutUrl,
+            ],
+            200
+        );
     }
 }

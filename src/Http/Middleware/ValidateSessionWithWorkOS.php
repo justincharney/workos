@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Laravel\WorkOS\WorkOS;
-use Symfony\Component\HttpFoundation\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use WorkOS\Exception\WorkOSException;
 
 class ValidateSessionWithWorkOS
@@ -22,19 +22,21 @@ class ValidateSessionWithWorkOS
 
         WorkOS::configure();
 
-        if (! $request->session()->get('workos_access_token') ||
-            ! $request->session()->get('workos_refresh_token')) {
+        if (
+            !$request->session()->get("workos_access_token") ||
+            !$request->session()->get("workos_refresh_token")
+        ) {
             return $this->logout($request);
         }
 
         try {
             [$accessToken, $refreshToken] = WorkOS::ensureAccessTokenIsValid(
-                $request->session()->get('workos_access_token'),
-                $request->session()->get('workos_refresh_token'),
+                $request->session()->get("workos_access_token"),
+                $request->session()->get("workos_refresh_token")
             );
 
-            $request->session()->put('workos_access_token', $accessToken);
-            $request->session()->put('workos_refresh_token', $refreshToken);
+            $request->session()->put("workos_access_token", $accessToken);
+            $request->session()->put("workos_refresh_token", $refreshToken);
         } catch (WorkOSException $e) {
             report($e);
 
@@ -47,13 +49,18 @@ class ValidateSessionWithWorkOS
     /**
      * Log the user out of the application.
      */
-    protected function logout(Request $request): RedirectResponse
+    protected function logout(Request $request): JsonResponse
     {
-        Auth::guard('web')->logout();
+        Auth::guard("web")->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return response()->json(
+            [
+                "error" => "Session expired or invalid. Please log in again.",
+            ],
+            401
+        );
     }
 }

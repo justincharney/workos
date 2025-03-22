@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Laravel\WorkOS\WorkOS;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Http\JsonResponse;
 use WorkOS\UserManagement;
 
 class AuthKitLoginRequest extends FormRequest
@@ -15,23 +15,21 @@ class AuthKitLoginRequest extends FormRequest
     /**
      * Redirect the user to WorkOS for authentication.
      */
-    public function redirect(): Response
+    public function redirect(): JsonResponse
     {
         WorkOS::configure();
 
-        $url = (new UserManagement)->getAuthorizationUrl(
-            config('services.workos.redirect_url'),
+        $url = (new UserManagement())->getAuthorizationUrl(
+            config("services.workos.redirect_url"),
             $state = [
-                'state' => Str::random(20),
-                'previous_url' => base64_encode(URL::previous()),
+                "state" => Str::random(20),
+                "previous_url" => base64_encode(URL::previous()),
             ],
-            'authkit',
+            "authkit"
         );
 
-        $this->session()->put('state', json_encode($state));
+        $this->session()->put("state", json_encode($state));
 
-        return class_exists(Inertia::class)
-            ? Inertia::location($url)
-            : redirect($url);
+        return response()->json(["authorization_url" => $url]);
     }
 }

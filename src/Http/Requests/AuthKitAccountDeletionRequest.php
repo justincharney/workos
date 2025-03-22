@@ -19,15 +19,13 @@ class AuthKitAccountDeletionRequest extends FormRequest
     {
         $user = $this->user();
 
-        if (isset($user->workos_id) && ! app()->runningUnitTests()) {
+        if (isset($user->workos_id) && !app()->runningUnitTests()) {
             WorkOS::configure();
 
-            (new UserManagement)->deleteUser(
-                $user->workos_id
-            );
+            (new UserManagement())->deleteUser($user->workos_id);
         }
 
-        Auth::guard('web')->logout();
+        Auth::guard("web")->logout();
 
         $using($user);
 
@@ -36,6 +34,11 @@ class AuthKitAccountDeletionRequest extends FormRequest
             $this->session()->regenerateToken();
         }
 
-        return redirect('/');
+        return response()->json(
+            [
+                "message" => "Account deleted successfully.",
+            ],
+            200
+        );
     }
 }
