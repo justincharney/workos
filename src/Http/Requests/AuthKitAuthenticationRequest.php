@@ -12,6 +12,7 @@ use Laravel\WorkOS\User;
 use Laravel\WorkOS\WorkOS;
 use Illuminate\Http\JsonResponse;
 use WorkOS\UserManagement;
+use Symfony\Component\HttpFoundation\Response;
 
 class AuthKitAuthenticationRequest extends FormRequest
 {
@@ -110,7 +111,7 @@ class AuthKitAuthenticationRequest extends FormRequest
     /**
      * Redirect the user to the previous URL or a default URL if no previous URL is available.
      */
-    public function redirect(string $default = "/"): JsonResponse
+    public function redirect(string $default = "/"): Response
     {
         $previousUrl =
             rtrim(
@@ -121,9 +122,9 @@ class AuthKitAuthenticationRequest extends FormRequest
         $to =
             !is_null($previousUrl) && $previousUrl !== URL::to("/")
                 ? $previousUrl
-                : $default;
+                : config("app.frontend_url") . $default;
 
-        return response()->json(["redirect" => $to]);
+        return redirect()->to($to);
     }
 
     /**
